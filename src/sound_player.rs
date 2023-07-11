@@ -19,8 +19,10 @@ impl SoundPlayer {
         }
     }
 
-    pub fn play_sound(&mut self, sound: sounds::Sound){
+    pub fn play_sound(&mut self, sound: sounds::Sound, is_blocking: bool) {
         self.lib_audio.play::<&str>(sound.into());
-        self.lib_audio.wait();
+        if is_blocking {
+            self.lib_audio.wait();
+        }
     }
 }

@@ -9,7 +9,7 @@ use std::{
     io,
     sync::mpsc,
     thread::{self, sleep, spawn},
-    time::Duration,
+    time::{Duration, Instant},
 };
 mod sound_player;
 use crossterm::{
@@ -47,15 +47,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut player = Player::new();
 
     // Setup field
+    let mut time_now = Instant::now();
 
+    sound_player.play_sound(Sound::Startup, false);
     // GameLoop
     'gameloop: loop {
         // wait for input
+        event::read
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
                     KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
-                        sound_player.play_sound(Sound::Lose);
+                        sound_player.play_sound(Sound::Lose, true);
                         break 'gameloop;
                     }
                     KeyCode::Char('A') | KeyCode::Char('a') | KeyCode::Left => {
@@ -64,6 +67,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     KeyCode::Char('D') | KeyCode::Char('d') | KeyCode::Right => {
                         player.move_right();
                     }
+                    KeyCode::Char(' ') => {
+                        if(player.fire()){
+                            sound_player.play_sound(Sound::Pew, false);
+                        }
+                    } 
                     _ => {}
                 }
             }
@@ -72,16 +80,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Frame creation
         // initialize frame
         let mut new_frame = new_frame();
+        let time_delta = time_now.elapsed();
+        time_now = Instant::now();
 
-        // Draw player 
+        // Update entities
+        player.update(time_delta);
+
+        // Draw player
         player.draw(&mut new_frame);
 
         // Send to the render thread. This might fail if that thread is not ready yet-thats fine.
         let _ = render_tx.send(new_frame);
-        thread::sleep(Duration::from_millis(50));
+        thread::sleep(Duration::from_millis(1));
     }
-
-    sound_player.play_sound(Sound::Startup);
 
     // Rendering cleanup
     drop(render_tx);
