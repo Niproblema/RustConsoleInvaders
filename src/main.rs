@@ -1,6 +1,7 @@
 use crossbeam::channel;
 use invaders::{
     frame::{self, new_frame, Drawable},
+    invaders::Invaders,
     player::Player,
     render,
 };
@@ -46,6 +47,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Setup player
     let mut player = Player::new();
 
+    // Setup invaders
+    let mut invaders = Invaders::new();
+
     // Setup field
     let mut time_now = Instant::now();
 
@@ -53,7 +57,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     // GameLoop
     'gameloop: loop {
         // wait for input
-        event::read
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
@@ -68,10 +71,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                         player.move_right();
                     }
                     KeyCode::Char(' ') => {
-                        if(player.fire()){
+                        if (player.fire()) {
                             sound_player.play_sound(Sound::Pew, false);
                         }
-                    } 
+                    }
                     _ => {}
                 }
             }
@@ -84,14 +87,33 @@ fn main() -> Result<(), Box<dyn Error>> {
         time_now = Instant::now();
 
         // Update entities
+        if invaders.update(time_delta) {
+            sound_player.play_sound(Sound::Move, false);
+        }
         player.update(time_delta);
 
-        // Draw player
-        player.draw(&mut new_frame);
+        // Check for hits
+        if player.check_for_hits(&mut invaders) {
+            sound_player.play_sound(Sound::Explode, false);
+        }
+
+        // Draw
+        let drawables: Vec<&dyn Drawable> = vec![&player, &invaders];
+        for drawable in drawables {
+            drawable.draw(&mut new_frame);
+        }
 
         // Send to the render thread. This might fail if that thread is not ready yet-thats fine.
         let _ = render_tx.send(new_frame);
         thread::sleep(Duration::from_millis(1));
+
+        if invaders.are_all_defeated() {
+            sound_player.play_sound(Sound::Win, true);
+            break 'gameloop;
+        } else if invaders.reached_bottom() {
+            sound_player.play_sound(Sound::Lose, true);
+            break 'gameloop;
+        }
     }
 
     // Rendering cleanup

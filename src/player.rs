@@ -3,6 +3,7 @@ use std::time::Duration;
 use rusty_time::Timer;
 
 use crate::frame::Frame;
+use crate::invaders::Invaders;
 use crate::projectile::{self, Projectile};
 use crate::{frame::Drawable, NUM_COLUMNS, NUM_ROWS};
 
@@ -60,6 +61,20 @@ impl Player {
     pub fn update(&mut self, time_delta: Duration) {
         self.reload_timer.update(time_delta);
         self.update_projectiles(time_delta);
+    }
+
+    pub fn check_for_hits(&mut self, invaders: &mut Invaders) -> bool {
+        let mut hit_any = false;
+
+        for projectile in self.projectiles.iter_mut() {
+            if !projectile.is_exploding
+                && invaders.shoot_unit_at(projectile.pos_x, projectile.pos_y)
+            {
+                hit_any = true;
+                projectile.explode();
+            }
+        }
+        hit_any
     }
 
     fn update_projectiles(&mut self, time_delta: Duration) {
